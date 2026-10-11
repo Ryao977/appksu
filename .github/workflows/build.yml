@@ -1,0 +1,29 @@
+name: build-module
+on:
+  workflow_dispatch:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download Android NDK r27c
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          unzip -q android-ndk-r27c-linux.zip
+          echo "NDK_DIR=$PWD/android-ndk-r27c" >> "$GITHUB_ENV"
+      - name: Build module
+        run: |
+          chmod +x build.sh customize.sh service.sh
+          ./build.sh "$NDK_DIR"
+      - name: Sanity check
+        run: |
+          unzip -l anti_device_flag_ksu.zip | grep -q "module.prop" || exit 1
+          unzip -l anti_device_flag_ksu.zip | grep -q "libanti_device_flag_zygisk.so" || exit 1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules
+          path: anti_device_flag_ksu.zip
+          if-no-files-found: error
