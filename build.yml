@@ -1,0 +1,39 @@
+name: build-module
+
+# 云端构建：无需本地 NDK
+# 用法：fork 本仓库 → 推送任意 commit（或手动 Run workflow）→ 在 Actions 的
+#       "modules" 附件里下载 anti_device_flag_ksu.zip（含真实二进制，可刷入）
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Android NDK r27c
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          unzip -q android-ndk-r27c-linux.zip
+          echo "NDK_DIR=$PWD/android-ndk-r27c" >> "$GITHUB_ENV"
+
+      - name: Build module
+        run: |
+          chmod +x build.sh customize.sh service.sh
+          ./build.sh "$NDK_DIR"
+
+      - name: Sanity check (module.prop must be at zip root)
+        run: |
+          unzip -l anti_device_flag_ksu.zip | head -20
+          unzip -l anti_device_flag_ksu.zip | grep -q "module.prop" || { echo "module.prop missing"; exit 1; }
+          unzip -l anti_device_flag_ksu.zip | grep -q "libanti_device_flag_zygisk.so" || { echo "zygisk so missing"; exit 1; }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules
+          path: anti_device_flag_ksu.zip
+          if-no-files-found: error
